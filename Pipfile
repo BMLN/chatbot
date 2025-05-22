@@ -7,6 +7,9 @@ name = "pypi"
 transformers = "*"
 torch = "*"
 ollama = "*"
+sentence-transformers = "*"
+weaviate-client = "*"
+accelerate = "*"
 
 [dev-packages]
 
