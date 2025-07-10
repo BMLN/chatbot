@@ -185,7 +185,7 @@ class WeaviateKB(Chatbot.KnowledgeBase):
         #TODO: fully list/support (all/useful?) of the (potential) args
         __args = {
             "near_vector": x,
-            "limit": 5,
+            "limit": 10,
             "return_metadata": weaviate.classes.query.MetadataQuery(distance=True)
         }
         __args = __args | {key: value for key, value in args.items() if key in __args }
