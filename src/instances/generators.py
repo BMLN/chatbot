@@ -1,57 +1,97 @@
-from interfaces import chatbot
+from chatbot.src.interfaces.chatbot import Chatbot, batchable
+from chatbot.src.inference.models import OnDemandModel
+
+import torch
 
 from typing import override
 
 
 import requests
-from json import loads as json_load
+from json import loads as json_load, dumps as json_dump
+
+
 
 
 """
 class APIGenerator(Generator):
-
     def __init__(self, url)
-
-
     pass
+    
 """
 
 
-
-class OllamaGenerator(chatbot.Chatbot.Generator):
-
+class OllamaGenerator(Chatbot.Generator):
     __basecall = """{{
         "model": "{model}",
         "messages": [
-        {{
-            "role": "system",
-            "content": "{system_content}"
-        }},
-        {{
-            "role": "user",
-            "content": "{text_content}"
-        }}
+            {{
+                "role": "system", 
+                "content": "{system_content}"
+            }},
+            {{
+                "role": "user",
+                "content": "{text_content}"
+            }}
         ],
         "temperature": 0,
+        "keep_alive": 0,
         "stream": false
     }}"""
-    
-    
 
-    def __init__(self, url):
+    def __init__(self, url, modelname):
+        super().__init__()
         self.url = url
-
+        self.model = modelname
 
     @override
     def generate(self, **args):
         call = self.__basecall.format(
-            model="tinyllama",
-            system_content="You are a helpful AI assistant.",
-            text_content="Hello! How are you?"
-        )
-        call = json_load(call)
+            **({ "model": self.model } | args)
+        )        
+        call = json_load(call, strict=False)
+        
 
         response = requests.post(url=self.url, json=call)
+        response = response.json()
+
+        response = dict(response).get("message", {}).get("content", None)
+
+            
+        return response
 
 
-        return response.json()
+
+
+
+
+
+class OnDemandGenerator(OnDemandModel, Chatbot.Generator):
+    
+    def __init__(self, modelname):
+        #super().__init__("meta-llama/Llama-3.3-70B-Instruct")
+        super().__init__(modelname)
+
+
+    @override
+    @batchable(inherent=True)
+    def inference(self, texts, *args, **kwargs):
+        tokenized = self.tokenizer(texts, return_tensors="pt")
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                do_sample=False, 
+                return_dict_in_generate=False,
+                **tokenized
+            )
+        #output_text = self.tokenizer.decode(output_ids[0][tokenized["input_ids"].shape[-1] - output_ids.shape[-1]:], skip_special_tokens=True)
+        output_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+
+        return output_text
+
+
+    @override
+    @batchable(inherent=True)
+    def generate(self, text):
+        return self(text)
+            

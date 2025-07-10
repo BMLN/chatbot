@@ -1,12 +1,18 @@
-import importlib
 from transformers import AutoModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoModelForTokenClassification, AutoModelForSequenceClassification
-from transformers import AutoConfig, AutoTokenizer
+from transformers import DPRContextEncoder, DPRQuestionEncoder
+from transformers import AutoConfig, AutoTokenizer, BitsAndBytesConfig
+
+import torch
 
 from huggingface_hub import snapshot_download
 from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 
 from os import makedirs
-from inspect import getmro
+
+
+
+
+
 
 
 
@@ -14,8 +20,12 @@ from inspect import getmro
 
 
 from logging import getLogger
-
 logger = getLogger()
+
+
+from transformers import logging
+logging.set_verbosity_error()
+getLogger("accelerate.utils.modeling").setLevel(40) #logging.ERROR = 40
 
 
 
@@ -82,6 +92,8 @@ MODEL_SUPPORT = {
     "Seq2SeqLM": AutoModelForSeq2SeqLM,
     "TokenClassification": AutoModelForTokenClassification,
     "SequenceClassification": AutoModelForSequenceClassification,
+    "DPRContextEncoder": DPRContextEncoder,
+    "DPRQuestionEncoder": DPRQuestionEncoder
 }
 
 def get_model_class_from_cfg(cfg):
@@ -107,6 +119,8 @@ def get_model_class_from_cfg(cfg):
 class OnDemandModel():
     def __init__(self, modelname):
         self.modelname = modelname
+        self.tokenizer = None
+        self.model = None
         
 
     def _load(self):
@@ -123,7 +137,7 @@ class OnDemandModel():
 
     def __call__(self, *args, **kwargs):
         self._load()
-        output = self.inference(args, kwargs)
+        output = self.inference(*args, **kwargs)
         self._unload()
         
         return output
@@ -133,7 +147,7 @@ class OnDemandModel():
         #COMPLETELY DEFAULT CALL
         assert self.tokenizer and self.model
 
-        return self.model(args, kwargs)
+        return self.model(*args, **kwargs)
 
 
     @classmethod
@@ -145,10 +159,11 @@ class OnDemandModel():
         except:
             __dl =  snapshot_download(modelname)
 
+        config = AutoConfig.from_pretrained(__dl)
 
         with init_empty_weights():
-            model = get_model_class_from_cfg(AutoConfig.from_pretrained(__dl))
-            model = model.from_config(AutoConfig.from_pretrained(__dl))
+            model = get_model_class_from_cfg(config)
+            model = model.from_pretrained(__dl, config=config)
 
         tokenizer = AutoTokenizer.from_pretrained(__dl)
         model = load_checkpoint_and_dispatch(

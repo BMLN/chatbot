@@ -1,5 +1,5 @@
-from cp.interfaces.chatbot import Chatbot, batchable
-from cp.inference.models import OnDemandModel
+from chatbot.src.interfaces.chatbot import Chatbot, batchable
+from chatbot.src.inference.models import OnDemandModel
 
 from sentence_transformers import SentenceTransformer
 from transformers import DPRQuestionEncoder, DPRQuestionEncoderTokenizer, DPRContextEncoder, DPRContextEncoderTokenizer
@@ -63,23 +63,22 @@ class DPRCEncoder(Chatbot.Vectorizer):
 
 class OnDemandDPREncoder(OnDemandModel, Chatbot.Vectorizer):
     
-    def __init__(self):
-        #super().__init__("facebook/dpr-question_encoder-multiset-base")
-        super().__init__("facebook/dpr-question_encoder-single-nq-base")
+    def __init__(self, modelname):
+        super().__init__(modelname)
 
 
     @override
-    @batchable(inherent=True)
+    @batchable(inherent=False) #false should lower memory demand
     def vectorize(self, text):
         return self.__call__(text)
 
 
     @override
-    @batchable(inherent=True)
     def inference(self, text, *args, **kwargs):
+        #print(text) #wo wirds tuple?
         inputs = self.tokenizer(text, return_tensors="pt", truncation=True)
         
         with torch.no_grad():
             outputs = self.model(**inputs)
-
+            
             return outputs.pooler_output.squeeze().tolist()
