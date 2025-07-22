@@ -4,12 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-transformers = "*"
-torch = "*"
-ollama = "*"
-sentence-transformers = "*"
-weaviate-client = "*"
-accelerate = "*"
+huggingface-hub = "*"
 jinja2 = "*"
 
 [dev-packages]

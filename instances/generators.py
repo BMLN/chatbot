@@ -1,5 +1,6 @@
-from chatbot.src.interfaces.chatbot import Chatbot, batchable
-from chatbot.src.inference.models import OnDemandModel
+from chatbot.interfaces.chatbot import Chatbot, batchable
+from chatbot.inference.models import OnDemandModel
+from chatbot.inference_providers.ollama import OllamaClient
 
 import torch
 
@@ -20,44 +21,11 @@ class APIGenerator(Generator):
 """
 
 
-class OllamaGenerator(Chatbot.Generator):
-    __basecall = """{{
-        "model": "{model}",
-        "messages": [
-            {{
-                "role": "system", 
-                "content": "{system_content}"
-            }},
-            {{
-                "role": "user",
-                "content": "{text_content}"
-            }}
-        ],
-        "temperature": 0,
-        "keep_alive": 0,
-        "stream": false
-    }}"""
-
-    def __init__(self, url, modelname):
-        super().__init__()
-        self.url = url
-        self.model = modelname
-
+class OllamaGenerator(Chatbot.Generator, OllamaClient):
+    
     @override
     def generate(self, **args):
-        call = self.__basecall.format(
-            **({ "model": self.model } | args)
-        )        
-        call = json_load(call, strict=False)
-        
-
-        response = requests.post(url=self.url, json=call)
-        response = response.json()
-
-        response = dict(response).get("message", {}).get("content", None)
-
-            
-        return response
+        return OllamaClient.generate(self, **args)
 
 
 
